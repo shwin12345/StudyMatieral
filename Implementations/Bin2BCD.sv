@@ -18,7 +18,7 @@
 // - done: Control Flag signifying data conversion complete
 // - new_ack: Acknowledgement Flag signifying new data is accepted for conversion
 ////////////////////////////////////////////////////////////////////////////////
-module SAA3 #(parameter N = 16, parameter M = 20)(
+module Bin2BCD #(parameter N = 16, parameter M = 20)(
 	// OUTPUTs
 	output logic [M-1 : 0] data_out,
 	output logic done,
@@ -37,7 +37,7 @@ module SAA3 #(parameter N = 16, parameter M = 20)(
 	// FSM Control for N-Cycle Conversion Control
 	typedef enum {IDLE, CONVERSION, DONE} conv_state_t;
 	conv_state_t conv_state, next_state;
-	logic reg_new_value, conversion_en, clr_cnt; // Control Outputs to Registers
+	logic reg_new_value, conversion_en, clr_cnt, clr_val_reg; // Control Outputs to Registers
 	logic [$clog2(N)-1 : 0] shft_cnt;
 	
 	// Counter Register for shift num in conversion process
@@ -66,10 +66,11 @@ module SAA3 #(parameter N = 16, parameter M = 20)(
 	// Next State Logic
 	always_comb begin
 		// FSM Output Defaulting
-		next_state = conv_state
+		next_state = conv_state;
 		conversion_en = 1'b0;
 		reg_new_value = 1'b0;
 		clr_cnt = 1'b0;
+		clr_val_reg = 1'b0;
 		done = 1'b0;
 		new_ack = 1'b0; // If New comes outside of IDLE or DONE, never ack
 		
@@ -87,11 +88,12 @@ module SAA3 #(parameter N = 16, parameter M = 20)(
 				if (new_data) begin
 					next_state = CONVERSION;
 					reg_new_value = 1'b1;
+					clr_val_reg = 1'b1;
 					new_ack = 1'b1; // Ack New Data is Registered
 				end
 			end
 			
-			default : begin // IDLE State
+			default : begin
 				if (new_data) begin
 					next_state = CONVERSION;
 					reg_new_value = 1'b1;
@@ -121,24 +123,24 @@ module SAA3 #(parameter N = 16, parameter M = 20)(
 	
 	
 	// BCD Shift-And-Add3 Logic Segments with Carry Chain
-	logic [3:0] BCD_seg [0 : m];
-	logic Carry [0 : m + 1];
+	logic [m : 0] Carry;
 	assign Carry[0] = Bin_MSB;
 	
 	genvar i;
-	generate : GEN_BCD_SEGMENTS
-		for (int i = 0; i < m; i++) begin
-			SAA3 (
+	generate 
+		for (i = 0; i < m; i++) begin : GEN_BCD_SEGMENTS
+			SAA3 ShiftAndAdd3(
 				// OUTPUTs
-				.BCD_seg(BCD_seg[i]),
+				.BCD_seg(data_out[(4*i)+3 : (4*i)]),
 				.COut(Carry[i+1]),
 				
 				// INPUTs
 				.clk(clk), 
 				.rst_n(rst_n),
 				.en(conversion_en),
-				.Cin(Carry[i])
+				.Cin(Carry[i]),
+				.clr_val_reg(clr_val_reg)
 				);
-		end
+		end : GEN_BCD_SEGMENTS
 	endgenerate
 endmodule

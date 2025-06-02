@@ -9,6 +9,7 @@
 // - rst_n: Global negedge rst
 // - en: Shift enable for signifying conversion
 // - Cin: Input Bit shifted in to 4-bit segment
+// - clr_val_reg: Input flag for clearing value register for next operation
 // Outputs:
 // - BCD_seg: 4-bit BCD Register Value
 // - COut: Carry Output Bit shifted to next 4-bit segment 
@@ -22,7 +23,8 @@ module SAA3 (
 	input clk, 
 	input rst_n,
 	input en,
-	input Cin
+	input Cin,
+	input clr_val_reg
 	);
 	
 	// NEXT Value dependent on if overflow to next BCD seg will occur after shift left
@@ -35,6 +37,9 @@ module SAA3 (
 	// BCD Value Register Continues shifting while conversion is enabled
 	always_ff @(posedge clk) begin : BCD_SEG_REGISTER
 		if (!rst_n) begin
+			BCD_seg <= 4'h0;
+		end
+		else if (clr_val_reg) begin
 			BCD_seg <= 4'h0;
 		end
 		else if (en) begin
